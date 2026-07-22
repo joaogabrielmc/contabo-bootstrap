@@ -106,6 +106,12 @@ sudo bash panel/hestiacp.sh
 
 O script baixa o instalador oficial e inicia a instalação interativa (e-mail do admin, hostname, senha, etc.).
 
+Em imagens Contabo, o grupo `admin` costuma já existir e o instalador oficial bloqueia. O wrapper detecta isso e passa `--force` automaticamente. Se ainda falhar:
+
+```bash
+sudo bash panel/hestiacp.sh --force
+```
+
 Instalação não interativa (exemplo):
 
 ```bash

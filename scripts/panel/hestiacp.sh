@@ -34,11 +34,45 @@ trap 'rm -rf "$INSTALL_DIR"' EXIT
 cd "$INSTALL_DIR"
 
 echo "==> Downloading official Hestia installer..."
-wget -q https://raw.githubusercontent.com/hestiacp/hestiacp/release/install/hst-install.sh -O hst-install.sh
+INSTALLER_URL="https://raw.githubusercontent.com/hestiacp/hestiacp/release/install/hst-install.sh"
+
+if ! wget --timeout=30 --tries=3 -O hst-install.sh "$INSTALLER_URL"; then
+  echo "wget failed, trying curl..."
+  if ! curl --fail --location --connect-timeout 30 --retry 3 -o hst-install.sh "$INSTALLER_URL"; then
+    echo "Error: could not download Hestia installer from GitHub."
+    echo "Check outbound HTTPS (443) and try again:"
+    echo "  curl -I $INSTALLER_URL"
+    exit 1
+  fi
+fi
+
+if [ ! -s hst-install.sh ]; then
+  echo "Error: downloaded installer is empty."
+  exit 1
+fi
+
+chmod +x hst-install.sh
+echo "    Download OK ($(wc -c < hst-install.sh) bytes)."
+
+# Contabo (and some cloud images) ship an "admin" group that blocks Hestia.
+# Official installer accepts --force for this case.
+FORCE_ARGS=()
+has_force=false
+for arg in "$@"; do
+  case "$arg" in
+    -f|--force) has_force=true ;;
+  esac
+done
+
+if getent group admin >/dev/null 2>&1 && [ "$has_force" = false ]; then
+  echo "==> Group 'admin' already exists (common on Contabo images)."
+  echo "    Passing --force so the official installer can continue."
+  FORCE_ARGS=(--force)
+fi
 
 echo "==> Starting HestiaCP installation..."
 echo "    (interactive prompts unless you passed --interactive no and required flags)"
-bash hst-install.sh "$@"
+bash hst-install.sh "${FORCE_ARGS[@]}" "$@"
 
 echo
 echo "==> HestiaCP install finished."
