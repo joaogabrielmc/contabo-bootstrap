@@ -1,24 +1,48 @@
 #!/bin/bash
-set -euo pipefail
 
-if [[ $EUID -ne 0 ]]; then
-  echo "This script must be run as root." >&2
-  exit 1
-fi
+set -e
 
-apt-get update
-apt-get install -y gnupg curl ca-certificates
+echo ">>> Instalando dependências..."
+sudo apt update
+sudo apt install -y curl gnupg
 
-install -d -m 0755 /etc/apt/keyrings
-curl -fsSL https://pgp.mongodb.com/server-7.0.asc | gpg --dearmor -o /etc/apt/keyrings/mongodb-server-7.0.gpg
-chmod 0644 /etc/apt/keyrings/mongodb-server-7.0.gpg
+echo ">>> Adicionando chave GPG..."
+curl -fsSL https://pgp.mongodb.com/server-8.0.asc \
+| sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
 
-CODENAME="$(. /etc/os-release && echo "$VERSION_CODENAME")"
-printf '%s\n' "# MongoDB repository for Ubuntu ${CODENAME}" "deb [signed-by=/etc/apt/keyrings/mongodb-server-7.0.gpg] https://repo.mongodb.org/apt/ubuntu ${CODENAME}/mongodb-org/7.0 multiverse" > /etc/apt/sources.list.d/mongodb-org-7.0.list
+echo ">>> Detectando versão do Ubuntu..."
+UBUNTU_CODENAME=$(source /etc/os-release && echo "$VERSION_CODENAME")
 
-apt-get update
-apt-get install -y mongodb-org
+echo "Ubuntu detectado: $UBUNTU_CODENAME"
 
-systemctl enable mongod
-systemctl start mongod
-systemctl status mongod --no-pager
+echo ">>> Adicionando repositório..."
+echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu $UBUNTU_CODENAME/mongodb-org/8.0 multiverse" \
+| sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+
+echo ">>> Atualizando repositórios..."
+sudo apt update
+
+echo ">>> Instalando MongoDB..."
+sudo apt install -y mongodb-org
+
+echo ">>> Habilitando serviço..."
+sudo systemctl daemon-reload
+sudo systemctl enable mongod
+sudo systemctl start mongod
+
+echo ">>> Status:"
+sudo systemctl --no-pager status mongod
+
+echo ""
+echo "=========================================="
+echo "MongoDB instalado com sucesso!"
+echo "=========================================="
+echo ""
+echo "Versão:"
+mongod --version | head -n 1
+echo ""
+echo "URL local:"
+echo "mongodb://127.0.0.1:27017"
+echo ""
+echo "Exemplo:"
+echo "mongodb://127.0.0.1:27017/financial_app"
